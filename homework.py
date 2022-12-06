@@ -9,7 +9,7 @@ import telegram
 from dotenv import load_dotenv
 
 from exceptions import (
-    GetAPICustomError, 
+    GetAPICustomError,
     SendMessageCustomError
 )
 
@@ -54,7 +54,7 @@ def send_message(bot, message):
             text=message
         )
     except telegram.error.TelegramError:
-        logger.error(f'Ошибка при отправке сообщения Telegram')
+        logger.error('Ошибка при отправке сообщения Telegram')
         raise SendMessageCustomError
     else:
         logger.debug('Сообщение успешно отправленно в Telegram')
@@ -69,7 +69,7 @@ def get_api_answer(timestamp):
             params={'from_date': timestamp}
         )
     except requests.RequestException:
-        logging.error(f'Ошибка при запросе к основному API')
+        logging.error('Ошибка при запросе к основному API')
         raise GetAPICustomError
     if response.status_code != HTTPStatus.OK:
         raise ConnectionError
