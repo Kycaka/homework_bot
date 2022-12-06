@@ -2,11 +2,17 @@ import logging
 import os
 import sys
 import time
+from http import HTTPStatus
 
 import requests
 import telegram
 from dotenv import load_dotenv
-from http import HTTPStatus
+
+from exceptions import (
+    GetAPICustomError, 
+    MyCustomError,
+    SendMessageCustomError
+)
 
 load_dotenv()
 
@@ -37,7 +43,6 @@ logger.addHandler(handler)
 def check_tokens():
     """Функция проверяет наличие всех токенов."""
     if not PRACTICUM_TOKEN or not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
-        logger.critical('Отсутствует один или несколько токенов')
         return False
     return True
 
@@ -49,8 +54,9 @@ def send_message(bot, message):
             chat_id=TELEGRAM_CHAT_ID,
             text=message
         )
-    except Exception as error:
-        logger.error(f'Ошибка при отправке сообщения Telegram - {error}')
+    except telegram.error.TelegramError:
+        logger.error(f'Ошибка при отправке сообщения Telegram')
+        raise SendMessageCustomError
     else:
         logger.debug('Сообщение успешно отправленно в Telegram')
 
@@ -63,8 +69,9 @@ def get_api_answer(timestamp):
             headers=HEADERS,
             params={'from_date': timestamp}
         )
-    except requests.RequestException as error:
-        logging.error(f'Ошибка при запросе к основному API: {error}')
+    except requests.RequestException:
+        logging.error(f'Ошибка при запросе к основному API')
+        raise GetAPICustomError
     if response.status_code != HTTPStatus.OK:
         raise ConnectionError
     response = response.json()
@@ -75,25 +82,23 @@ def get_api_answer(timestamp):
 
 def check_response(response):
     """Функция принимет словарь на вход и проверяет его содержимое."""
-    response_fields = [
+    RESPONSE_FIELDS = {
         'id',
         'status',
         'homework_name',
         'reviewer_comment',
         'date_updated',
         'lesson_name',
-    ]
+    }
     if not isinstance(response, dict):
         raise TypeError
     homework_list = response.get('homeworks')
     if not isinstance(homework_list, list):
         raise TypeError
-    if len(homework_list) < 1:
-        return None
     for homework in homework_list:
-        for field in response_fields:
+        for field in RESPONSE_FIELDS:
             if not homework.get(field):
-                logging.error(
+                logging.warning(
                     f'В ответе API отсутствует ожидаемый ключ - {field}'
                 )
     return homework_list
@@ -114,7 +119,7 @@ def parse_status(homework):
         raise TypeError
     verdict = HOMEWORK_VERDICTS.get(status)
     if verdict is None:
-        logging.error(f'Неожиданный статус домашней работы - {status}')
+        logging.warning(f'Неожиданный статус домашней работы - {status}')
         return None
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
@@ -122,6 +127,7 @@ def parse_status(homework):
 def main():
     """Основная логика работы бота."""
     if not check_tokens():
+        logger.critical('Отсутствует один или несколько токенов')
         sys.exit()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time()) - RETRY_PERIOD
@@ -139,8 +145,7 @@ def main():
                 send_message(bot, message)
                 previous_message = message
         except Exception as error:
-            message = f'Сбой в работе программы: {error}'
-            logger.error(message)
+            logger.error(f'Сбой в работе программы: {error}')
             if message != previous_message:
                 send_message(bot, message)
                 previous_message = message
