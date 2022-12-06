@@ -4,7 +4,3 @@ class SendMessageCustomError(Exception):
 
 class GetAPICustomError(Exception):
     pass
-
-
-class MyCustomError(Exception):
-    pass
