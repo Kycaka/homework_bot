@@ -4,13 +4,17 @@ import sys
 import time
 from http import HTTPStatus
 
+import json
 import requests
 import telegram
 from dotenv import load_dotenv
 
 from exceptions import (
     GetAPICustomError,
-    SendMessageCustomError
+    SendMessageCustomError,
+    CheckResponseError,
+    ParseStatusError,
+    JsonError,
 )
 
 load_dotenv()
@@ -41,9 +45,7 @@ logger.addHandler(handler)
 
 def check_tokens():
     """Функция проверяет наличие всех токенов."""
-    if not PRACTICUM_TOKEN or not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
-        return False
-    return True
+    return all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
 
 
 def send_message(bot, message):
@@ -73,7 +75,11 @@ def get_api_answer(timestamp):
         raise GetAPICustomError
     if response.status_code != HTTPStatus.OK:
         raise ConnectionError
-    response = response.json()
+    try:
+        response = response.json()
+    except json.JSONDecodeError:
+        logger.error('Ответ от API не был преобзаван в json')
+        raise JsonError
     if not isinstance(response, dict):
         raise TypeError
     return response
@@ -81,14 +87,14 @@ def get_api_answer(timestamp):
 
 def check_response(response):
     """Функция принимет словарь на вход и проверяет его содержимое."""
-    RESPONSE_FIELDS = {
+    RESPONSE_FIELDS = (
         'id',
         'status',
         'homework_name',
         'reviewer_comment',
         'date_updated',
         'lesson_name',
-    }
+    )
     if not isinstance(response, dict):
         raise TypeError
     homework_list = response.get('homeworks')
@@ -97,9 +103,9 @@ def check_response(response):
     for homework in homework_list:
         for field in RESPONSE_FIELDS:
             if not homework.get(field):
-                logging.warning(
-                    f'В ответе API отсутствует ожидаемый ключ - {field}'
-                )
+                logging.error(f'В ответе API отсутствует ожидаемый ключ - {field}') 
+                # Здесь после исправления ошибки всегда вылезает ошибка из pytest 
+                # "Убедитесь, что при корректном ответе API функция `check_response` не вызывает исключений."
     return homework_list
 
 
@@ -118,8 +124,7 @@ def parse_status(homework):
         raise TypeError
     verdict = HOMEWORK_VERDICTS.get(status)
     if verdict is None:
-        logging.warning(f'Неожиданный статус домашней работы - {status}')
-        return None
+        raise ParseStatusError
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
@@ -143,11 +148,10 @@ def main():
             if message != previous_message:
                 send_message(bot, message)
                 previous_message = message
+        except ParseStatusError:
+            logging.error('Неожиданный статус домашней работы')
         except Exception as error:
             logger.error(f'Сбой в работе программы: {error}')
-            if message != previous_message:
-                send_message(bot, message)
-                previous_message = message
         finally:
             timestamp += RETRY_PERIOD
             time.sleep(RETRY_PERIOD)
