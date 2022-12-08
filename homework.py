@@ -12,7 +12,6 @@ from dotenv import load_dotenv
 from exceptions import (
     GetAPICustomError,
     SendMessageCustomError,
-    CheckResponseError,
     ParseStatusError,
     JsonError,
 )
@@ -103,9 +102,12 @@ def check_response(response):
     for homework in homework_list:
         for field in RESPONSE_FIELDS:
             if not homework.get(field):
-                logging.error(f'В ответе API отсутствует ожидаемый ключ - {field}') 
-                # Здесь после исправления ошибки всегда вылезает ошибка из pytest 
-                # "Убедитесь, что при корректном ответе API функция `check_response` не вызывает исключений."
+                logging.error(
+                    f'В ответе API отсутствует ожидаемый ключ - {field}'
+                )
+# Здесь после исправления ошибки всегда вылезает ошибка из pytest
+# "Убедитесь, что при корректном ответе API
+# функция `check_response` не вызывает исключений."
     return homework_list
 
 
