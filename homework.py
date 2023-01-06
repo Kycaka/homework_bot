@@ -9,7 +9,7 @@ import requests
 import telegram
 from dotenv import load_dotenv
 
-from exceptions import(
+from exceptions import (
     GetAPICustomError,
     SendMessageCustomError,
     ParseStatusError,
@@ -100,8 +100,8 @@ def check_response(response):
     if not isinstance(homework_list, list):
         raise TypeError
     for homework in homework_list:
-        for field in RESPONSE_FIELDS: 
-            if not homework.get(field): 
+        for field in RESPONSE_FIELDS:
+            if not homework.get(field):
                 logging.error(
                     f'В ответе API отсутствует ожидаемый ключ - {field}'
                 )
