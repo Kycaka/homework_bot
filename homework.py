@@ -13,8 +13,7 @@ from exceptions import (
     GetAPICustomError,
     SendMessageCustomError,
     ParseStatusError,
-    JsonError,
-    CheckResponseError
+    JsonError
 )
 
 load_dotenv()
