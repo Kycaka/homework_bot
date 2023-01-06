@@ -14,6 +14,7 @@ from exceptions import (
     SendMessageCustomError,
     ParseStatusError,
     JsonError,
+    CheckResponseError
 )
 
 load_dotenv()
@@ -99,15 +100,6 @@ def check_response(response):
     homework_list = response.get('homeworks')
     if not isinstance(homework_list, list):
         raise TypeError
-    for homework in homework_list:
-        for field in RESPONSE_FIELDS:
-            if not homework.get(field):
-                logging.error(
-                    f'В ответе API отсутствует ожидаемый ключ - {field}'
-                )
-# Здесь после исправления ошибки всегда вылезает ошибка из pytest
-# "Убедитесь, что при корректном ответе API
-# функция `check_response` не вызывает исключений."
     return homework_list
 
 
@@ -150,10 +142,13 @@ def main():
             if message != previous_message:
                 send_message(bot, message)
                 previous_message = message
-        except ParseStatusError:
-            logging.error('Неожиданный статус домашней работы')
+        except SendMessageCustomError:
+            logger.error('Ошибка при отправке сообщения')
         except Exception as error:
             logger.error(f'Сбой в работе программы: {error}')
+            if message != previous_message:
+                send_message(bot, message)
+                previous_message = message
         finally:
             timestamp += RETRY_PERIOD
             time.sleep(RETRY_PERIOD)
