@@ -99,6 +99,12 @@ def check_response(response):
     homework_list = response.get('homeworks')
     if not isinstance(homework_list, list):
         raise TypeError
+    for homework in homework_list:
+        for field in RESPONSE_FIELDS: 
+            if not homework.get(field): 
+                logging.error(
+                    f'В ответе API отсутствует ожидаемый ключ - {field}'
+                )
     return homework_list
 
 
